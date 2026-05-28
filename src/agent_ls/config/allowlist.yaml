@@ -1,0 +1,133 @@
+auto_approve:
+  # Package managers
+  - pattern: "brew install *"
+    risk: low
+  - pattern: "brew tap *"
+    risk: low
+  - pattern: "brew update"
+    risk: low
+  - pattern: "brew upgrade *"
+    risk: low
+  - pattern: "pip install *"
+    risk: low
+  - pattern: "pip3 install *"
+    risk: low
+  - pattern: "npm install *"
+    risk: low
+  - pattern: "npx *"
+    risk: low
+  - pattern: "cargo install *"
+    risk: low
+  - pattern: "gem install *"
+    risk: low
+
+  # Version managers
+  - pattern: "nvm install *"
+    risk: low
+  - pattern: "nvm use *"
+    risk: low
+  - pattern: "pyenv install *"
+    risk: low
+  - pattern: "pyenv global *"
+    risk: low
+  - pattern: "rustup *"
+    risk: low
+  - pattern: "uv *"
+    risk: low
+
+  # Git (safe operations)
+  - pattern: "git clone *"
+    risk: low
+  - pattern: "git checkout *"
+    risk: low
+  - pattern: "git pull"
+    risk: low
+  - pattern: "git fetch *"
+    risk: low
+  - pattern: "git status"
+    risk: none
+  - pattern: "git branch *"
+    risk: low
+
+  # File operations (safe)
+  - pattern: "mkdir -p *"
+    risk: low
+  - pattern: "mkdir *"
+    risk: low
+  - pattern: "touch *"
+    risk: low
+
+  # Read-only commands
+  - pattern: "cat *"
+    risk: none
+  - pattern: "ls *"
+    risk: none
+  - pattern: "ls"
+    risk: none
+  - pattern: "which *"
+    risk: none
+  - pattern: "echo *"
+    risk: none
+  - pattern: "pwd"
+    risk: none
+  - pattern: "env"
+    risk: none
+  - pattern: "printenv *"
+    risk: none
+  - pattern: "python --version"
+    risk: none
+  - pattern: "python3 --version"
+    risk: none
+  - pattern: "node --version"
+    risk: none
+  - pattern: "java --version"
+    risk: none
+  - pattern: "java -version"
+    risk: none
+
+require_approval:
+  - pattern: "sudo *"
+    risk: high
+    reason: "Requires elevated privileges"
+  - pattern: "rm -rf *"
+    risk: critical
+    reason: "Recursive deletion"
+  - pattern: "rm -r *"
+    risk: high
+    reason: "Recursive deletion"
+  - pattern: "chmod *"
+    risk: medium
+    reason: "Changes file permissions"
+  - pattern: "chown *"
+    risk: high
+    reason: "Changes file ownership"
+  - pattern: "defaults write *"
+    risk: medium
+    reason: "Modifies macOS system preferences"
+  - pattern: "launchctl *"
+    risk: high
+    reason: "Modifies system services"
+  - pattern: "networksetup *"
+    risk: high
+    reason: "Modifies network configuration"
+  - pattern: "curl * | sh"
+    risk: high
+    reason: "Pipe to shell execution"
+  - pattern: "curl * | bash"
+    risk: high
+    reason: "Pipe to shell execution"
+  - pattern: "wget * | sh"
+    risk: high
+    reason: "Pipe to shell execution"
+
+blocked:
+  - pattern: "rm -rf /"
+    reason: "Recursive deletion of root filesystem"
+  - pattern: "rm -rf /*"
+    reason: "Recursive deletion of root filesystem"
+  - pattern: ":(){ :|:& };:"
+    reason: "Fork bomb"
+  - pattern: "mkfs *"
+    reason: "Filesystem format"
+  - pattern: "dd if=* of=/dev/*"
+    reason: "Raw disk write"

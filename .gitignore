@@ -1,0 +1,42 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Virtual environments
+.venv
+env/
+venv/
+
+# Environment variables (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# agent-ls runtime data
+audit.jsonl
+~/.agent-ls/
+
+# Lock file (optional - can be committed for reproducibility)
+# uv.lock
