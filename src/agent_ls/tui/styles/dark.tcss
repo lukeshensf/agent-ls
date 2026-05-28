@@ -1,0 +1,9 @@
+/* Dark theme - default */
+$primary: #4a9eff;
+$secondary: #6c757d;
+$surface: #1e1e2e;
+$text: #cdd6f4;
+$text-muted: #6c7086;
+$success: #a6e3a1;
+$error: #f38ba8;
+$warning: #f9e2af;

@@ -1,0 +1,9 @@
+/* Light theme */
+$primary: #1e66f5;
+$secondary: #6c6f85;
+$surface: #eff1f5;
+$text: #4c4f69;
+$text-muted: #9ca0b0;
+$success: #40a02b;
+$error: #d20f39;
+$warning: #df8e1d;

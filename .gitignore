@@ -36,7 +36,12 @@ Thumbs.db
 
 # agent-ls runtime data
 audit.jsonl
+sessions/
+*.jsonl
 ~/.agent-ls/
+
+# Config files with secrets (user-generated at runtime)
+config.toml
 
 # Lock file (optional - can be committed for reproducibility)
 # uv.lock

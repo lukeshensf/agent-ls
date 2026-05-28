@@ -63,7 +63,11 @@ class CommandExecutor:
     async def execute_streaming(
         self, command: str, cwd: Optional[str] = None
     ) -> AsyncIterator[StreamEvent]:
-        """Execute a command and yield output as it arrives."""
+        """Execute a command and yield output as it arrives.
+
+        Uses an asyncio.Queue to merge stdout and stderr concurrently,
+        yielding events in the order they are produced by either stream.
+        """
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
@@ -71,18 +75,34 @@ class CommandExecutor:
             cwd=cwd,
         )
 
-        async def read_stream(stream: asyncio.StreamReader, name: str):
+        queue: asyncio.Queue[Optional[StreamEvent]] = asyncio.Queue()
+
+        async def reader(stream: Optional[asyncio.StreamReader], name: str) -> None:
+            if stream is None:
+                return
             while True:
                 line = await stream.readline()
                 if not line:
                     break
-                yield StreamEvent(stream=name, data=line.decode(errors="replace"))
+                await queue.put(
+                    StreamEvent(stream=name, data=line.decode(errors="replace"))
+                )
 
-        if proc.stdout:
-            async for event in read_stream(proc.stdout, "stdout"):
-                yield event
-        if proc.stderr:
-            async for event in read_stream(proc.stderr, "stderr"):
-                yield event
+        stdout_task = asyncio.create_task(reader(proc.stdout, "stdout"))
+        stderr_task = asyncio.create_task(reader(proc.stderr, "stderr"))
+
+        async def sentinel() -> None:
+            """Wait for both readers to finish, then push a None sentinel."""
+            await asyncio.gather(stdout_task, stderr_task)
+            await queue.put(None)
+
+        sentinel_task = asyncio.create_task(sentinel())
+
+        while True:
+            event = await queue.get()
+            if event is None:
+                break
+            yield event
 
         await proc.wait()
+        await sentinel_task
