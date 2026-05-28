@@ -14,8 +14,11 @@ Employees joining teams waste hours deciphering outdated Slack messages and brok
 
 ```
 [START] -> [ROUTER] --(intent)--> [CONTEXT_GATHER] -> [PLAN] -> [EXECUTE <-> SECURITY_GATE] -> [OBSIDIAN_WRITE] -> [SUMMARIZE] -> [END]
-                     |                                                                              ^
-                     +--(search)--> [SLACK_SEARCH] -> [EXTRACT] -----------------------------------|
+                     |                    |                                                          ^
+                     |                    +-- calls --> [SLACKBOT SERVICE] (external)                |
+                     |                    +-- reads --> [OBSIDIAN KB] (local)                        |
+                     |                                                                              |
+                     +--(search)--> [SLACKBOT SERVICE] -> [EXTRACT] --------------------------------|
                      |                                                                              |
                      +--(share)---> [OBSIDIAN_READ] -> [SLACK_SHARE] -------------------------------|
                      |                                                                              |
@@ -344,11 +347,234 @@ Post to specified channel -> Update doc frontmatter with share metadata
 
 ---
 
+### SLACKBOT INTEGRATION (Context Retrieval Service)
+
+#### Overview
+
+Instead of agent-ls directly using a Slack User OAuth token to search messages, agent-ls delegates context retrieval to an **existing Slackbot service**. The Slackbot has full workspace access (messages, channel history, user profiles, pinned items, team bookmarks) and returns structured context that agent-ls feeds into its planning pipeline.
+
+This decouples agent-ls from Slack auth complexity, centralizes rate limiting, and enables richer context than the `search.messages` API alone provides.
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  agent-ls (local CLI/TUI)                                           │
+│                                                                      │
+│  [User Input] → [Router] → [Context Gather] → [Plan] → [Execute]   │
+│                                    │                                 │
+│                                    │ request context                 │
+│                                    ▼                                 │
+│                          ┌─────────────────┐                        │
+│                          │ SlackBot Client  │                        │
+│                          │ (adapter layer)  │                        │
+│                          └────────┬────────┘                        │
+└───────────────────────────────────┼─────────────────────────────────┘
+                                    │
+                     ───────────────┼───────────────
+                    │   Network (HTTP or Slack API)  │
+                     ───────────────┼───────────────
+                                    │
+                                    ▼
+              ┌─────────────────────────────────────────┐
+              │  Slackbot Service (existing, deployed)   │
+              │                                         │
+              │  Capabilities:                          │
+              │  • Search messages across workspace     │
+              │  • Read full channel history            │
+              │  • Get user profiles & team info        │
+              │  • Access pinned items & bookmarks      │
+              │  • Return structured context payloads   │
+              └─────────────────────────────────────────┘
+```
+
+#### Communication Patterns (Two Options)
+
+**Option A: Direct HTTP API (Recommended for low-latency)**
+
+The Slackbot exposes a REST endpoint that agent-ls calls directly:
+
+```
+POST https://<slackbot-service>/api/context
+{
+  "query": "java development setup",
+  "team": "platform-team",
+  "scope": ["messages", "pins", "bookmarks"],
+  "max_results": 50,
+  "channels": ["#team-platform", "#dev-setup", "#onboarding"]
+}
+
+Response:
+{
+  "messages": [...],
+  "pins": [...],
+  "bookmarks": [...],
+  "user_profiles": [...],
+  "suggested_channels": [...]
+}
+```
+
+**Option B: Slack-mediated (Bot mention / DM)**
+
+agent-ls sends a structured message to the bot via Slack, the bot replies in-thread:
+
+```
+agent-ls → DM to @setup-bot:
+  "CONTEXT_REQUEST: java development setup for platform-team"
+
+@setup-bot replies:
+  {structured JSON context payload}
+```
+
+This is simpler (no separate endpoint to manage) but higher latency and limited by Slack message size (40KB).
+
+#### Integration Design
+
+**New files:**
+
+| File | Purpose |
+|------|---------|
+| `integrations/slack/bot_client.py` | Adapter that calls the Slackbot service for context |
+| `graph/nodes/context_gather.py` | Updated: routes to bot_client instead of direct search |
+
+**SlackBotClient interface:**
+
+```python
+class SlackBotClient:
+    """Client for the external Slackbot context retrieval service."""
+
+    def __init__(self, endpoint_url: str = None, bot_user_id: str = None):
+        # Option A: HTTP endpoint
+        # Option B: Slack bot user ID for DM-based communication
+        ...
+
+    async def fetch_context(
+        self,
+        query: str,
+        team: str | None = None,
+        channels: list[str] | None = None,
+        scope: list[str] = ["messages", "pins", "bookmarks"],
+        max_results: int = 50,
+    ) -> BotContextResponse:
+        """Request workspace context from the Slackbot."""
+        ...
+
+    async def get_team_setup_docs(self, team: str) -> list[SetupDoc]:
+        """Ask the bot for team-specific setup documentation."""
+        ...
+
+    async def get_user_context(self, user_email: str) -> UserWorkspaceContext:
+        """Get a user's team, role, and relevant channels from the bot."""
+        ...
+```
+
+**Response types:**
+
+```python
+@dataclass
+class BotContextResponse:
+    messages: list[SlackMessage]
+    pins: list[PinnedItem]
+    bookmarks: list[Bookmark]
+    user_profiles: list[dict]
+    suggested_channels: list[str]
+    confidence: float  # 0-1 relevance score
+
+@dataclass
+class SetupDoc:
+    title: str
+    content: str
+    source_channel: str
+    last_updated: str
+    verified: bool
+
+@dataclass
+class UserWorkspaceContext:
+    team: str
+    role: str
+    channels: list[str]
+    tech_stack: list[str]
+    manager: str | None
+```
+
+#### Updated Data Flow
+
+**Before (direct Slack API):**
+```
+User → Router → Search Slack (user token) → Extract → Plan → Execute
+```
+
+**After (via Slackbot):**
+```
+User → Router → Context Gather (calls Slackbot) → Plan → Execute
+                       │
+                       ├─ fetch_context(query, team)     → messages, pins
+                       ├─ get_team_setup_docs(team)      → verified guides
+                       └─ get_user_context(user_email)   → role, stack
+```
+
+The Slackbot provides richer context than raw search — it can aggregate across pinned items, bookmarks, channel topics, and its own indexed knowledge, giving the planning LLM better signal.
+
+#### Configuration
+
+```toml
+[slackbot]
+# Option A: HTTP endpoint
+endpoint_url = "https://your-slackbot-service.internal/api"
+auth_token = "bot-service-auth-token"
+
+# Option B: Slack-mediated (DM to bot)
+bot_user_id = "U1234567890"
+
+# Shared
+timeout_seconds = 30
+max_retries = 3
+```
+
+Environment variables:
+```bash
+SLACKBOT_ENDPOINT_URL=https://your-slackbot-service.internal/api
+SLACKBOT_AUTH_TOKEN=...
+SLACKBOT_USER_ID=U1234567890
+```
+
+#### Implementation Phases
+
+##### Slackbot Phase 1: Adapter Layer (Days 1-2)
+- `integrations/slack/bot_client.py` — HTTP client with auth, retry, timeout
+- `BotContextResponse` dataclass and response parsing
+- Config: add `SlackBotSettings` to settings.py
+- Unit tests with mocked HTTP responses
+- **Verify**: Mock bot returns JSON → client parses into typed response
+
+##### Slackbot Phase 2: Graph Integration (Days 3-4)
+- Update `graph/nodes/context_gather.py` to use `SlackBotClient` as primary source
+- Fallback: if bot is unreachable, fall back to direct Slack search (graceful degradation)
+- Merge bot context with user's local Obsidian KB for comprehensive plan input
+- Update `AgentState` with `bot_context: Optional[BotContextResponse]`
+- **Verify**: `agent-ls "set up Java"` → calls bot → receives context → generates better plan
+
+##### Slackbot Phase 3: Rich Context (Days 5-6)
+- `get_team_setup_docs()` — fetch verified team guides from bot's knowledge base
+- `get_user_context()` — auto-detect user's team/role/stack without manual config
+- Pre-populate `UserContext` from bot response before plan generation
+- Cache bot responses locally (TTL: 1 hour) to reduce latency on repeated queries
+- **Verify**: New user runs agent-ls → bot identifies their team → auto-fetches relevant docs
+
+##### Slackbot Phase 4: Feedback Loop (Week 3)
+- After successful setup, notify bot of completion (POST /api/feedback)
+- Bot can update its knowledge base with verified steps
+- Bot can proactively notify agent-ls of stale docs (webhook or polling)
+- **Verify**: Complete setup → bot receives success signal → marks docs as verified
+
+---
+
 ## Key Dependencies
 
 ```
 langgraph>=0.4, langchain-core>=0.3, langchain-anthropic>=0.3
-langchain-openai>=0.3, langchain-ollama>=0.3
+langchain-openai>=0.3, langchain-aws>=0.2
+boto3>=1.35, python-dotenv>=1.0
 textual>=3.0, rich>=13.0
 slack-sdk>=3.30
 typer>=0.12, pydantic>=2.0, pydantic-settings>=2.0

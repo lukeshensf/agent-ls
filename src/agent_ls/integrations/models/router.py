@@ -34,6 +34,7 @@ TASK_ROUTING: dict[str, ModelTier] = {
 _PROVIDER_ENV_VARS = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
+    "bedrock": "BEDROCK_AUTH_TOKEN",
 }
 
 
@@ -132,7 +133,32 @@ class ModelRouter:
     def _create_model(self, model_id: str) -> BaseChatModel:
         provider, model_name = model_id.split("/", 1)
 
-        if provider == "anthropic":
+        if provider == "bedrock":
+            from langchain_aws import ChatBedrockConverse
+
+            bedrock_cfg = self._settings.bedrock
+            kwargs = {
+                "model": model_name,
+                "region_name": bedrock_cfg.region,
+            }
+            if bedrock_cfg.endpoint_url:
+                kwargs["endpoint_url"] = bedrock_cfg.endpoint_url
+            if bedrock_cfg.auth_token:
+                import boto3
+                from botocore.config import Config
+
+                session = boto3.Session(region_name=bedrock_cfg.region)
+                client = session.client(
+                    "bedrock-runtime",
+                    endpoint_url=bedrock_cfg.endpoint_url,
+                    config=Config(
+                        inject_host_prefix=False,
+                    ),
+                )
+                kwargs["client"] = client
+
+            return ChatBedrockConverse(**kwargs)
+        elif provider == "anthropic":
             from langchain_anthropic import ChatAnthropic
 
             return ChatAnthropic(model=model_name)

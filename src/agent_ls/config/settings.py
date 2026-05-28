@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from functools import lru_cache
 from pathlib import Path
@@ -12,10 +13,16 @@ CONFIG_DIR = Path.home() / ".agent-ls"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 
 
+class BedrockSettings(BaseModel):
+    endpoint_url: Optional[str] = None
+    auth_token: Optional[str] = None
+    region: str = "us-west-2"
+
+
 class ModelSettings(BaseModel):
-    cheap: str = "anthropic/claude-haiku"
-    expensive: str = "anthropic/claude-sonnet"
-    computer_use: str = "anthropic/claude-sonnet"
+    cheap: str = "bedrock/anthropic.claude-haiku-4-5-20251001"
+    expensive: str = "bedrock/anthropic.claude-sonnet-4-20250514"
+    computer_use: str = "bedrock/anthropic.claude-sonnet-4-20250514"
     cheap_fallback: Optional[str] = None
     expensive_fallback: Optional[str] = None
 
@@ -41,6 +48,7 @@ class UISettings(BaseModel):
 
 class Settings(BaseModel):
     models: ModelSettings = Field(default_factory=ModelSettings)
+    bedrock: BedrockSettings = Field(default_factory=BedrockSettings)
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     slack: SlackSettings = Field(default_factory=SlackSettings)
     obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)
@@ -51,10 +59,35 @@ class Settings(BaseModel):
     @classmethod
     def from_toml(cls, path: Path = CONFIG_FILE) -> Settings:
         if not path.exists():
-            return cls()
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
-        return cls(**data)
+            data = {}
+        else:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+
+        settings = cls(**data)
+        settings._apply_env_overrides()
+        return settings
+
+    def _apply_env_overrides(self) -> None:
+        """Override settings with environment variables when present."""
+        if val := os.environ.get("BEDROCK_ENDPOINT_URL"):
+            self.bedrock.endpoint_url = val
+        if val := os.environ.get("BEDROCK_AUTH_TOKEN"):
+            self.bedrock.auth_token = val
+        if val := os.environ.get("AWS_REGION"):
+            self.bedrock.region = val
+        if val := os.environ.get("BEDROCK_MODEL_CHEAP"):
+            self.models.cheap = f"bedrock/{val}"
+        if val := os.environ.get("BEDROCK_MODEL_EXPENSIVE"):
+            self.models.expensive = f"bedrock/{val}"
+        if val := os.environ.get("SLACK_USER_TOKEN"):
+            self.slack.user_token = val
+        if val := os.environ.get("OBSIDIAN_VAULT_PATH"):
+            self.obsidian.vault_path = val
+        if val := os.environ.get("OBSIDIAN_GIT_AUTO_SYNC"):
+            self.obsidian.git_auto_sync = val.lower() in ("true", "1", "yes")
+        if val := os.environ.get("OLLAMA_BASE_URL"):
+            self.ollama.base_url = val
 
 
 @lru_cache
@@ -85,6 +118,7 @@ def _serialize_toml(settings: Settings) -> str:
         lines.append("")
 
     _write_section("models", settings.models.model_dump())
+    _write_section("bedrock", settings.bedrock.model_dump())
     _write_section("ollama", settings.ollama.model_dump())
     _write_section("slack", settings.slack.model_dump())
     _write_section("obsidian", settings.obsidian.model_dump())
