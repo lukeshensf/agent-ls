@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from agent_ls.config.settings import get_settings
+from agent_ls.integrations.obsidian.templates import DocTemplate, Frontmatter, TemplateEngine
 
 
 class ObsidianVault:
@@ -45,3 +46,13 @@ class ObsidianVault:
 
     def exists(self, relative_path: str) -> bool:
         return (self._root / relative_path).exists()
+
+    def read_with_frontmatter(self, relative_path: str) -> tuple[Frontmatter, str]:
+        content = self.read(relative_path)
+        engine = TemplateEngine()
+        return engine.parse_frontmatter(content)
+
+    def write_with_template(self, relative_path: str, template: DocTemplate, context: dict) -> Path:
+        engine = TemplateEngine()
+        content = engine.render(template, context)
+        return self.write(relative_path, content)

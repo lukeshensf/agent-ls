@@ -52,3 +52,6 @@ class AgentState(TypedDict):
     obsidian_docs: list[str]
     slack_results: list[SlackMessage]
     error: Optional[str]
+    share_channel: Optional[str]
+    share_result: Optional[str]
+    extracted_urls: list[str]

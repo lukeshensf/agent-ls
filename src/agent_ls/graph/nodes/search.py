@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import structlog
+
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent_ls.graph.state import AgentState, SlackMessage
+from agent_ls.graph.state import AgentState
 from agent_ls.integrations.models.router import ModelRouter
-from agent_ls.integrations.slack.client import SlackClient
+from agent_ls.integrations.slack.search import SlackSearch
 
+logger = structlog.get_logger()
 
 SEARCH_QUERY_PROMPT = """Given the user's setup request, generate a Slack search query
 to find relevant setup documentation and instructions.
@@ -24,18 +27,17 @@ async def slack_search_node(state: AgentState) -> dict:
 
     query = response.content.strip()
 
-    client = SlackClient()
-    raw_results = await client.search_messages(query)
+    # Derive team channel if possible
+    channels = None
+    user_context = state.get("user_context")
+    if user_context and user_context.team:
+        channels = [f"{user_context.team}-eng", f"{user_context.team}-setup"]
 
-    slack_results = [
-        SlackMessage(
-            channel=msg.get("channel", {}).get("name", "unknown"),
-            user=msg.get("username", "unknown"),
-            text=msg.get("text", ""),
-            timestamp=msg.get("ts", ""),
-            permalink=msg.get("permalink"),
-        )
-        for msg in raw_results[:10]
-    ]
+    try:
+        search = SlackSearch()
+        results = await search.search(query, channels=channels, max_results=20)
+    except (ValueError, RuntimeError) as e:
+        logger.warning("slack_search_failed", error=str(e))
+        return {"slack_results": [], "error": f"Slack search failed: {e}"}
 
-    return {"slack_results": slack_results}
+    return {"slack_results": results}
