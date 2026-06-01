@@ -137,25 +137,18 @@ class ModelRouter:
             from langchain_aws import ChatBedrockConverse
 
             bedrock_cfg = self._settings.bedrock
-            kwargs = {
+            kwargs: dict = {
                 "model": model_name,
                 "region_name": bedrock_cfg.region,
             }
-            if bedrock_cfg.endpoint_url:
-                kwargs["endpoint_url"] = bedrock_cfg.endpoint_url
             if bedrock_cfg.auth_token:
-                import boto3
-                from botocore.config import Config
-
-                session = boto3.Session(region_name=bedrock_cfg.region)
-                client = session.client(
-                    "bedrock-runtime",
+                kwargs["client"] = self._build_bearer_bedrock_client(
                     endpoint_url=bedrock_cfg.endpoint_url,
-                    config=Config(
-                        inject_host_prefix=False,
-                    ),
+                    region=bedrock_cfg.region,
+                    auth_token=bedrock_cfg.auth_token,
                 )
-                kwargs["client"] = client
+            elif bedrock_cfg.endpoint_url:
+                kwargs["endpoint_url"] = bedrock_cfg.endpoint_url
 
             return ChatBedrockConverse(**kwargs)
         elif provider == "anthropic":
@@ -174,3 +167,32 @@ class ModelRouter:
             )
         else:
             raise ValueError(f"Unknown model provider: {provider}")
+
+    @staticmethod
+    def _build_bearer_bedrock_client(
+        endpoint_url: Optional[str], region: str, auth_token: str
+    ):
+        """Bedrock-runtime client that authenticates with a bearer token instead of SigV4.
+
+        Used by Salesforce-internal Bedrock proxies that terminate auth at the gateway.
+        The signer is set to UNSIGNED so botocore won't strip our header; the bearer
+        is injected on `before-send` (after the signing pass) to survive redirects.
+        """
+        import boto3
+        from botocore import UNSIGNED
+        from botocore.config import Config
+
+        session = boto3.Session(region_name=region)
+        client = session.client(
+            "bedrock-runtime",
+            endpoint_url=endpoint_url,
+            config=Config(inject_host_prefix=False, signature_version=UNSIGNED),
+        )
+
+        def _inject_bearer(request, **_kw):
+            request.headers["Authorization"] = f"Bearer {auth_token}"
+
+        client.meta.events.register(
+            "before-send.bedrock-runtime.*", _inject_bearer
+        )
+        return client
