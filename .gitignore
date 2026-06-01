@@ -43,5 +43,10 @@ sessions/
 # Config files with secrets (user-generated at runtime)
 config.toml
 
+# Certs / private keys
+*.pem
+*.key
+*.crt
+
 # Lock file (optional - can be committed for reproducibility)
 # uv.lock

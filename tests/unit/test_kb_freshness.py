@@ -28,6 +28,8 @@ def base_state():
         "share_channel": None,
         "share_result": None,
         "extracted_urls": [],
+        "processed_message_ids": [],
+        "run_success": False,
     }
 
 
@@ -78,12 +80,18 @@ async def test_kb_freshness_detects_stale_doc(base_state):
     with (
         patch("agent_ls.graph.nodes.kb_freshness.ObsidianVault") as mock_vault_cls,
         patch("agent_ls.graph.nodes.kb_freshness.CommandExecutor") as mock_exec_cls,
+        patch("agent_ls.graph.nodes.kb_freshness.get_settings") as mock_settings,
+        patch("agent_ls.graph.nodes.kb_freshness.GitSync") as mock_git_cls,
+        patch("agent_ls.graph.nodes.kb_freshness.TeamKnowledge") as mock_tk_cls,
         patch("agent_ls.graph.nodes.kb_freshness._check_url", new_callable=lambda: AsyncMock),
     ):
         mock_vault = MagicMock()
         mock_vault.list_docs.return_value = ["teams/eng/setup.md"]
         mock_vault.read.return_value = doc_content
+        mock_vault.root = "/tmp/vault"
         mock_vault_cls.return_value = mock_vault
+
+        mock_settings.return_value.obsidian.freshness_fallback = False
 
         mock_executor = MagicMock()
         failed_result = MagicMock()
@@ -103,12 +111,15 @@ async def test_kb_freshness_healthy_doc(base_state):
     with (
         patch("agent_ls.graph.nodes.kb_freshness.ObsidianVault") as mock_vault_cls,
         patch("agent_ls.graph.nodes.kb_freshness.CommandExecutor") as mock_exec_cls,
+        patch("agent_ls.graph.nodes.kb_freshness.get_settings") as mock_settings,
         patch("agent_ls.graph.nodes.kb_freshness._check_url", new_callable=lambda: AsyncMock),
     ):
         mock_vault = MagicMock()
         mock_vault.list_docs.return_value = ["teams/eng/setup.md"]
         mock_vault.read.return_value = doc_content
         mock_vault_cls.return_value = mock_vault
+
+        mock_settings.return_value.obsidian.freshness_fallback = True
 
         mock_executor = MagicMock()
         ok_result = MagicMock()
@@ -128,12 +139,15 @@ async def test_kb_freshness_stale_url(base_state):
     with (
         patch("agent_ls.graph.nodes.kb_freshness.ObsidianVault") as mock_vault_cls,
         patch("agent_ls.graph.nodes.kb_freshness.CommandExecutor") as mock_exec_cls,
+        patch("agent_ls.graph.nodes.kb_freshness.get_settings") as mock_settings,
         patch("agent_ls.graph.nodes.kb_freshness._check_url") as mock_check_url,
     ):
         mock_vault = MagicMock()
         mock_vault.list_docs.return_value = ["teams/eng/guide.md"]
         mock_vault.read.return_value = doc_content
         mock_vault_cls.return_value = mock_vault
+
+        mock_settings.return_value.obsidian.freshness_fallback = False
 
         mock_exec_cls.return_value = MagicMock()
         mock_check_url.return_value = 404

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import structlog
 
 from agent_ls.config.settings import get_settings
 from agent_ls.graph.state import AgentState
 from agent_ls.integrations.computer_use.executor import CommandExecutor
+from agent_ls.integrations.obsidian.git_sync import GitSync
+from agent_ls.integrations.obsidian.team_knowledge import TeamKnowledge
 from agent_ls.integrations.obsidian.vault import ObsidianVault
 
 logger = structlog.get_logger()
@@ -29,6 +32,7 @@ _COMMAND_PREFIXES = ("brew ", "pip ", "npm ", "git ", "curl ", "apt ", "cargo ",
 
 async def kb_freshness_node(state: AgentState) -> dict:
     """Check knowledge base docs for broken commands and URLs."""
+    settings = get_settings()
     vault = ObsidianVault()
     user_context = state.get("user_context")
     team = user_context.team if user_context else "general"
@@ -70,7 +74,29 @@ async def kb_freshness_node(state: AgentState) -> dict:
     stale_docs = [c.doc_path for c in freshness_results if c.is_stale]
     logger.info("kb_freshness_complete", total=len(freshness_results), stale=len(stale_docs))
 
-    return {"obsidian_docs": stale_docs}
+    if stale_docs and settings.obsidian.freshness_fallback:
+        try:
+            git_sync = GitSync(vault.root)
+            team_kb = TeamKnowledge(git_sync)
+            for stale_path in stale_docs:
+                topic = Path(stale_path).stem.replace("-", " ").replace("_", " ")
+                working = team_kb.find_working_setup(topic)
+                if working:
+                    vault.write(stale_path, working.content)
+                    git_sync.commit_and_push(
+                        vault.root / stale_path,
+                        f"agent-ls: recovered {stale_path} from {working.author}",
+                    )
+                    logger.info(
+                        "kb_recovered",
+                        path=stale_path,
+                        from_author=working.author,
+                        commit=working.commit_hash,
+                    )
+        except (ValueError, Exception) as e:
+            logger.warning("team_knowledge_fallback_failed", error=str(e))
+
+    return {"obsidian_docs": stale_docs, "run_success": len(stale_docs) == 0}
 
 
 def _extract_commands(content: str) -> list[str]:

@@ -55,3 +55,5 @@ class AgentState(TypedDict):
     share_channel: Optional[str]
     share_result: Optional[str]
     extracted_urls: list[str]
+    processed_message_ids: list[str]
+    run_success: bool

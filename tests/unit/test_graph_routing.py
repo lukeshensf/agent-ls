@@ -58,9 +58,9 @@ class TestShouldContinueExecution:
 
 
 class TestAfterSummarize:
-    def test_setup_intent_writes_obsidian(self):
+    def test_setup_intent_goes_to_finalize(self):
         state = _make_state(intent="setup")
-        assert _after_summarize(state) == "obsidian_write"
+        assert _after_summarize(state) == "finalize"
 
     def test_search_intent_ends(self):
         state = _make_state(intent="search")

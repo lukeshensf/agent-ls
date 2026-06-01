@@ -46,3 +46,10 @@ class SlackClient:
             return profile["profile"]
         except SlackApiError as e:
             raise RuntimeError(f"Slack profile fetch failed: {e.response['error']}") from e
+
+    async def get_thread_replies(self, channel: str, thread_ts: str) -> list[dict]:
+        try:
+            response = self._client.conversations_replies(channel=channel, ts=thread_ts)
+            return response["messages"]
+        except SlackApiError as e:
+            raise RuntimeError(f"Slack thread fetch failed: {e.response['error']}") from e

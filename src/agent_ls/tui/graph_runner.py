@@ -6,7 +6,9 @@ from typing import Optional
 
 from textual.app import App
 
+from agent_ls.config.settings import get_settings
 from agent_ls.graph.builder import build_graph
+from agent_ls.graph.checkpointer import get_checkpointer
 from agent_ls.graph.state import ExecutionResult, PlanStep, UserContext
 from agent_ls.tui.events import (
     ApprovalRequired,
@@ -45,7 +47,12 @@ class GraphRunner:
         """Build and invoke the LangGraph agent, posting TUI events."""
         self._app.post_message(SessionStateChanged(state="running"))
 
-        graph = build_graph()
+        settings = get_settings()
+        checkpointer = None
+        if settings.checkpoint.enabled:
+            checkpointer = await get_checkpointer()
+
+        graph = build_graph(checkpointer=checkpointer)
 
         initial_state = {
             "messages": [HumanMessage(content=message)],
@@ -58,10 +65,17 @@ class GraphRunner:
             "obsidian_docs": [],
             "slack_results": [],
             "error": None,
+            "processed_message_ids": [],
+            "run_success": False,
         }
 
+        config = {}
+        if checkpointer:
+            thread_id = f"agent-ls:{message[:50]}"
+            config = {"configurable": {"thread_id": thread_id}}
+
         try:
-            result = await graph.ainvoke(initial_state)
+            result = await graph.ainvoke(initial_state, config=config)
 
             # Post plan if one was generated
             plan: list[PlanStep] = result.get("plan", [])

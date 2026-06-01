@@ -44,6 +44,8 @@ def write_state():
         "share_channel": None,
         "share_result": None,
         "extracted_urls": [],
+        "processed_message_ids": [],
+        "run_success": False,
     }
 
 
@@ -65,6 +67,8 @@ def read_state():
         "share_channel": None,
         "share_result": None,
         "extracted_urls": [],
+        "processed_message_ids": [],
+        "run_success": False,
     }
 
 
@@ -105,6 +109,33 @@ async def test_write_node_skips_git_when_disabled(write_state, tmp_path):
 
         result = await obsidian_write_node(write_state)
 
+    assert len(result["obsidian_docs"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_write_node_pushes_on_success(write_state, tmp_path):
+    write_state["run_success"] = True
+
+    with (
+        patch("agent_ls.graph.nodes.obsidian.ObsidianVault") as mock_vault_cls,
+        patch("agent_ls.graph.nodes.obsidian.get_settings") as mock_settings,
+        patch("agent_ls.graph.nodes.obsidian.GitSync") as mock_git_cls,
+    ):
+        mock_vault = MagicMock()
+        mock_vault.write_with_template.return_value = tmp_path / "test.md"
+        mock_vault_cls.return_value = mock_vault
+        mock_vault.root = tmp_path
+
+        mock_settings.return_value.obsidian.git_auto_sync = True
+
+        mock_git = MagicMock()
+        mock_git.commit_and_push.return_value = True
+        mock_git_cls.return_value = mock_git
+
+        result = await obsidian_write_node(write_state)
+
+    mock_git.commit_and_push.assert_called_once()
+    mock_git.commit_file.assert_not_called()
     assert len(result["obsidian_docs"]) == 1
 
 

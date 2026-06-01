@@ -60,7 +60,10 @@ async def obsidian_write_node(state: AgentState) -> dict:
     if settings.obsidian.git_auto_sync:
         try:
             git_sync = GitSync(vault.root)
-            git_sync.commit_file(path, f"agent-ls: setup log {timestamp}")
+            if state.get("run_success"):
+                git_sync.commit_and_push(path, f"agent-ls: setup log {timestamp}")
+            else:
+                git_sync.commit_file(path, f"agent-ls: setup log {timestamp}")
         except (ValueError, Exception) as e:
             logger.warning("git_sync_failed", error=str(e))
 

@@ -33,11 +33,21 @@ class OllamaSettings(BaseModel):
 
 class SlackSettings(BaseModel):
     user_token: Optional[str] = None
+    follow_threads: bool = True
+    semantic_threshold: float = 0.3
 
 
 class ObsidianSettings(BaseModel):
     vault_path: Optional[str] = None
     git_auto_sync: bool = True
+    git_push_on_success: bool = True
+    freshness_fallback: bool = True
+
+
+class CheckpointSettings(BaseModel):
+    enabled: bool = True
+    db_path: str = str(CONFIG_DIR / "checkpoints.db")
+    max_age_days: int = 30
 
 
 class UISettings(BaseModel):
@@ -52,6 +62,7 @@ class Settings(BaseModel):
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     slack: SlackSettings = Field(default_factory=SlackSettings)
     obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)
+    checkpoint: CheckpointSettings = Field(default_factory=CheckpointSettings)
     ui: UISettings = Field(default_factory=UISettings)
     audit_log_path: str = str(CONFIG_DIR / "audit.jsonl")
     allowlist_path: str = str(Path(__file__).parent / "allowlist.yaml")

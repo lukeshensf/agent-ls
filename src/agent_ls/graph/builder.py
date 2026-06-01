@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import Optional
+
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 
 from agent_ls.graph.nodes.context_gather import context_gather_node
 from agent_ls.graph.nodes.execute import execute_after_approval, execute_node
 from agent_ls.graph.nodes.extract import extract_node
+from agent_ls.graph.nodes.finalize import finalize_node
+from agent_ls.graph.nodes.kb_freshness import kb_freshness_node
 from agent_ls.graph.nodes.obsidian import obsidian_read_node, obsidian_write_node
 from agent_ls.graph.nodes.plan import plan_node
 from agent_ls.graph.nodes.search import slack_search_node
@@ -39,11 +44,11 @@ def _route_intent(state: AgentState) -> str:
 
 def _after_summarize(state: AgentState) -> str:
     if state.get("intent") == "setup":
-        return "obsidian_write"
+        return "finalize"
     return "end"
 
 
-def build_graph():
+def build_graph(checkpointer: Optional[BaseCheckpointSaver] = None):
     graph = StateGraph(AgentState)
 
     graph.add_node("context_gather", context_gather_node)
@@ -52,12 +57,13 @@ def build_graph():
     graph.add_node("execute", execute_node)
     graph.add_node("execute_after_approval", execute_after_approval)
     graph.add_node("summarize", summarize_node)
+    graph.add_node("finalize", finalize_node)
     graph.add_node("obsidian_write", obsidian_write_node)
     graph.add_node("obsidian_read", obsidian_read_node)
     graph.add_node("slack_search", slack_search_node)
     graph.add_node("extract", extract_node)
     graph.add_node("slack_share", slack_share_node)
-    graph.add_node("kb_freshness", _kb_freshness_placeholder)
+    graph.add_node("kb_freshness", kb_freshness_node)
 
     graph.set_entry_point("context_gather")
 
@@ -74,7 +80,7 @@ def build_graph():
         },
     )
 
-    # Setup/general branch: plan -> execute loop -> summarize -> (optionally) obsidian_write
+    # Setup/general branch: plan -> execute loop -> summarize -> finalize -> obsidian_write
     graph.add_edge("plan", "execute")
     graph.add_conditional_edges(
         "execute",
@@ -98,8 +104,9 @@ def build_graph():
     graph.add_conditional_edges(
         "summarize",
         _after_summarize,
-        {"obsidian_write": "obsidian_write", "end": END},
+        {"finalize": "finalize", "end": END},
     )
+    graph.add_edge("finalize", "obsidian_write")
     graph.add_edge("obsidian_write", END)
 
     # Search branch: slack_search -> extract -> execute loop
@@ -110,11 +117,7 @@ def build_graph():
     graph.add_edge("obsidian_read", "slack_share")
     graph.add_edge("slack_share", END)
 
-    # Update KB branch: placeholder -> END
-    graph.add_edge("kb_freshness", END)
+    # Update KB branch: kb_freshness -> obsidian_write -> END
+    graph.add_edge("kb_freshness", "obsidian_write")
 
-    return graph.compile()
-
-
-async def _kb_freshness_placeholder(state: AgentState) -> dict:
-    return {}
+    return graph.compile(checkpointer=checkpointer)

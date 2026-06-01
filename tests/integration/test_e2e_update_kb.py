@@ -29,6 +29,8 @@ async def test_update_kb_flow():
         "share_channel": None,
         "share_result": None,
         "extracted_urls": [],
+        "processed_message_ids": [],
+        "run_success": False,
     }
 
     # Step 1: Router classifies as update_kb
@@ -62,12 +64,15 @@ Check docs at https://broken-link.example.com/guide
     with (
         patch("agent_ls.graph.nodes.kb_freshness.ObsidianVault") as mock_vault_cls,
         patch("agent_ls.graph.nodes.kb_freshness.CommandExecutor") as mock_exec_cls,
+        patch("agent_ls.graph.nodes.kb_freshness.get_settings") as mock_settings,
         patch("agent_ls.graph.nodes.kb_freshness._check_url") as mock_check_url,
     ):
         mock_vault = MagicMock()
         mock_vault.list_docs.return_value = ["teams/eng/python-setup.md"]
         mock_vault.read.return_value = doc_content
         mock_vault_cls.return_value = mock_vault
+
+        mock_settings.return_value.obsidian.freshness_fallback = False
 
         # brew is installed (which brew succeeds)
         ok_result = MagicMock()
