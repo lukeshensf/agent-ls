@@ -1,9 +1,8 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from agent_ls.integrations.slack.search import SlackSearch
-from agent_ls.graph.state import SlackMessage
 
 
 @pytest.fixture

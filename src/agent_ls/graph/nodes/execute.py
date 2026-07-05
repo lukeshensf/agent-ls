@@ -58,7 +58,7 @@ async def _execute_command(state: AgentState, command: str) -> dict:
 
     step.status = "running"
 
-    with ExecutionTimer() as timer:
+    with ExecutionTimer() as _:
         cmd_result = await executor.execute(command)
 
     step.status = "done" if cmd_result.exit_code == 0 else "failed"

@@ -1,6 +1,4 @@
 import pytest
-from pathlib import Path
-from unittest.mock import patch
 
 from agent_ls.integrations.obsidian.vault import ObsidianVault
 from agent_ls.integrations.obsidian.templates import DocTemplate

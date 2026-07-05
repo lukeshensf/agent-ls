@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from agent_ls.graph.state import SlackMessage
 from agent_ls.integrations.slack.smart_search import SmartSearch
