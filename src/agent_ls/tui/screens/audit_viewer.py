@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
@@ -90,17 +91,29 @@ class AuditViewer(ModalScreen[None]):
 
             style = self._row_style(classification)
 
+            # Style cells with Rich Text if style is specified
+            command_text = command if len(command) <= 60 else command[:57] + "..."
+            if style:
+                timestamp_cell: str | Text = Text(timestamp, style=style)
+                command_cell: str | Text = Text(command_text, style=style)
+                classification_cell: str | Text = Text(classification, style=style)
+                exit_code_cell: str | Text = Text(exit_code, style=style)
+                duration_cell: str | Text = Text(duration_str, style=style)
+            else:
+                timestamp_cell = timestamp
+                command_cell = command_text
+                classification_cell = classification
+                exit_code_cell = exit_code
+                duration_cell = duration_str
+
             table.add_row(
-                timestamp,
-                command if len(command) <= 60 else command[:57] + "...",
-                classification,
-                exit_code,
-                duration_str,
+                timestamp_cell,
+                command_cell,
+                classification_cell,
+                exit_code_cell,
+                duration_cell,
                 key=None,
             )
-            row_key = table.row_count - 1
-            if style:
-                table.rows[list(table.rows.keys())[row_key]].style = style
 
     def _row_style(self, classification: str) -> str:
         styles = {

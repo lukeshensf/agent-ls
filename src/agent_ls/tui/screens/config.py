@@ -14,7 +14,16 @@ from textual.widgets import (
     TabPane,
 )
 
-from agent_ls.config.settings import get_settings, save_settings, Settings
+from agent_ls.config.settings import (
+    get_settings,
+    save_settings,
+    Settings,
+    ModelSettings,
+    OllamaSettings,
+    SlackSettings,
+    ObsidianSettings,
+    UISettings,
+)
 
 
 class ConfigScreen(ModalScreen[bool]):
@@ -156,25 +165,29 @@ class ConfigScreen(ModalScreen[bool]):
         self.dismiss(False)
 
     def _save_settings(self) -> None:
+        # Get theme value - always has a selection since we set a default
+        theme_value = self.query_one("#select-theme", Select).value
+        theme = str(theme_value) if theme_value else "dark"
+
         settings = Settings(
-            models={
-                "cheap": self.query_one("#input-model-cheap", Input).value,
-                "expensive": self.query_one("#input-model-expensive", Input).value,
-                "computer_use": self.query_one("#input-model-computer-use", Input).value,
-            },
-            ollama={
-                "base_url": self.query_one("#input-ollama-url", Input).value,
-            },
-            slack={
-                "user_token": self.query_one("#input-slack-token", Input).value or None,
-            },
-            obsidian={
-                "vault_path": self.query_one("#input-vault-path", Input).value or None,
-                "git_auto_sync": self.query_one("#switch-git-sync", Switch).value,
-            },
-            ui={
-                "theme": self.query_one("#select-theme", Select).value,
-                "session_persistence": self.query_one("#switch-session-persist", Switch).value,
-            },
+            models=ModelSettings(
+                cheap=self.query_one("#input-model-cheap", Input).value,
+                expensive=self.query_one("#input-model-expensive", Input).value,
+                computer_use=self.query_one("#input-model-computer-use", Input).value,
+            ),
+            ollama=OllamaSettings(
+                base_url=self.query_one("#input-ollama-url", Input).value,
+            ),
+            slack=SlackSettings(
+                user_token=self.query_one("#input-slack-token", Input).value or None,
+            ),
+            obsidian=ObsidianSettings(
+                vault_path=self.query_one("#input-vault-path", Input).value or None,
+                git_auto_sync=self.query_one("#switch-git-sync", Switch).value,
+            ),
+            ui=UISettings(
+                theme=theme,
+                session_persistence=self.query_one("#switch-session-persist", Switch).value,
+            ),
         )
         save_settings(settings)

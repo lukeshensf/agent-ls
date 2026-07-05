@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Header, Input
+
+if TYPE_CHECKING:
+    from agent_ls.tui.graph_runner import GraphRunner
 
 from agent_ls.config.settings import get_settings
 from agent_ls.tui.events import (
@@ -60,7 +63,7 @@ class AgentLSApp(App):
         self._initial_message = initial_message
         self._show_config = show_config
         self._resume_session_id = resume_session_id
-        self._graph_runner = None
+        self._graph_runner: Optional[GraphRunner] = None
         self._session_id = resume_session_id or str(uuid.uuid4())[:8]
         self._original_message: Optional[str] = None
 
@@ -96,6 +99,9 @@ class AgentLSApp(App):
         from agent_ls.tui.session import SessionManager
 
         mgr = SessionManager()
+        # _resume_session_id is Optional[str], but if we're in this method it must be set
+        if not self._resume_session_id:
+            return
         session_data = mgr.load_session(self._resume_session_id)
         if not session_data:
             chat = self.query_one("#chat-panel", StreamingLog)
