@@ -33,6 +33,7 @@ dev = [
     "pytest-mock>=3.14",
     "ruff>=0.8",
     "mypy>=1.13",
+    "types-PyYAML>=6.0",
 ]
 
 [project.scripts]
@@ -52,3 +53,11 @@ line-length = 100
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mypy]
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+disallow_untyped_defs = false
+check_untyped_defs = false
