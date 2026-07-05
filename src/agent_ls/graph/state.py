@@ -57,3 +57,4 @@ class AgentState(TypedDict):
     extracted_urls: list[str]
     processed_message_ids: list[str]
     run_success: bool
+    harness_path: Optional[str]

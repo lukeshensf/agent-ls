@@ -109,7 +109,7 @@ agent-ls audit [-n 50]
    - Safe commands (`brew install`, `git clone`) auto-execute
    - Risky commands (`sudo`, `rm -rf`) require your approval
    - Dangerous commands (`rm -rf /`) are blocked
-5. **Results are logged** — to Obsidian KB and audit trail
+5. **Results are logged** — to Obsidian KB and audit trail. Each setup run also emits an executable, re-runnable `{team}-setup-{date}.sh` bash harness containing only the audited commands that succeeded; failed, blocked, and manual steps are commented out (with secrets redacted) so a teammate can review the full context and replay the working setup.
 6. **You can resume interrupted sessions** — `agent-ls run --resume <id>`
 
 ## Security Model

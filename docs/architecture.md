@@ -38,6 +38,9 @@ The key insight: **Obsidian + git IS the memory**. LangGraph checkpoints handle 
                      └──→  [FINALIZE]  ←───────────────────────┘
                                │
                                ▼
+                       [EMIT_HARNESS]
+                               │
+                               ▼
                        [OBSIDIAN_WRITE]
                                │
                                ▼
@@ -67,9 +70,10 @@ The key insight: **Obsidian + git IS the memory**. LangGraph checkpoints handle 
 6. `execute` — Runs commands via subprocess with security gate
 7. `summarize` — Produces session summary
 8. `finalize` — Determines `run_success` (gates git push)
-9. `obsidian_write` — Writes to vault, commits, conditionally pushes
-10. `kb_freshness` — Checks docs for staleness, falls back to team git history
-11. `obsidian_read` / `slack_share` — Read vault docs, post to Slack
+9. `emit_harness` — Serializes plan into a re-runnable bash harness (`logs/{team}-setup-{date}.sh`), executable, git-synced with same success gate
+10. `obsidian_write` — Writes to vault, commits, conditionally pushes
+11. `kb_freshness` — Checks docs for staleness, falls back to team git history
+12. `obsidian_read` / `slack_share` — Read vault docs, post to Slack
 
 ### State
 
@@ -277,8 +281,8 @@ User triggers "setup" → Agent queries Slack profile for team/role →
 Smart searches team channels (thread-following, dedup) →
 Cheap model extracts steps → Reads existing Obsidian KB for that team →
 Expensive model generates execution plan → Execute with approval gates →
-Finalize (determine success) → Write setup log to Obsidian →
-Success? → Git push to team workspace
+Finalize (determine success) → Emit re-runnable .sh harness →
+Write setup log to Obsidian → Success? → Git push to team workspace
 ```
 
 ### Flow 2: Knowledge Recovery (Freshness Fallback)
