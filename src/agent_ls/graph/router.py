@@ -5,6 +5,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent_ls.graph.state import AgentState
+from agent_ls.graph.utils import message_content_as_text
 from agent_ls.integrations.models.router import ModelRouter
 
 
@@ -31,7 +32,7 @@ async def router_node(state: AgentState) -> dict:
         HumanMessage(content=last_message.content),
     ])
 
-    intent = response.content.strip().lower()
+    intent = message_content_as_text(response.content).strip().lower()
     valid_intents = {"setup", "search", "share", "update_kb", "general"}
     if intent not in valid_intents:
         intent = "general"
@@ -39,7 +40,7 @@ async def router_node(state: AgentState) -> dict:
     result: dict = {"intent": intent}
 
     if intent == "share":
-        channel_match = _CHANNEL_PATTERN.search(last_message.content)
+        channel_match = _CHANNEL_PATTERN.search(message_content_as_text(last_message.content))
         if channel_match:
             result["share_channel"] = channel_match.group(1)
 

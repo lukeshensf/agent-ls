@@ -6,6 +6,7 @@ import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent_ls.graph.state import AgentState, PlanStep
+from agent_ls.graph.utils import message_content_as_text
 from agent_ls.integrations.models.router import ModelRouter
 
 logger = structlog.get_logger()
@@ -52,7 +53,7 @@ async def error_recovery_node(state: AgentState) -> dict:
             HumanMessage(content=prompt),
         ])
 
-        data = json.loads(response.content)
+        data = json.loads(message_content_as_text(response.content))
         recovery_step = PlanStep(
             description=f"[Recovery] {data['description']}",
             command=data.get("command"),

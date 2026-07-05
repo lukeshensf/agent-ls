@@ -5,6 +5,7 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent_ls.graph.state import AgentState, PlanStep
+from agent_ls.graph.utils import message_content_as_text
 from agent_ls.integrations.models.router import ModelRouter
 
 
@@ -39,7 +40,7 @@ async def plan_node(state: AgentState) -> dict:
         if ctx.tech_stack:
             context_parts.append(f"Tech stack: {', '.join(ctx.tech_stack)}")
 
-    user_msg = last_message.content
+    user_msg = message_content_as_text(last_message.content)
     if context_parts:
         user_msg += f"\n\nContext: {'; '.join(context_parts)}"
 
@@ -49,7 +50,7 @@ async def plan_node(state: AgentState) -> dict:
     ])
 
     try:
-        steps_data = json.loads(response.content)
+        steps_data = json.loads(message_content_as_text(response.content))
         plan = [
             PlanStep(description=s["description"], command=s.get("command"))
             for s in steps_data

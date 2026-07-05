@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent_ls.config.settings import get_settings
 from agent_ls.graph.state import AgentState
+from agent_ls.graph.utils import message_content_as_text
 from agent_ls.integrations.models.router import ModelRouter
 from agent_ls.integrations.slack.smart_search import SmartSearch
 
@@ -26,7 +27,7 @@ async def slack_search_node(state: AgentState) -> dict:
         HumanMessage(content=last_message.content),
     ])
 
-    query = response.content.strip()
+    query = message_content_as_text(response.content).strip()
 
     channels = None
     user_context = state.get("user_context")
