@@ -82,3 +82,62 @@ class TestUnknownCommands:
         result = checker.classify("some-custom-script --flag")
         assert result.classification == SecurityClassification.NEEDS_APPROVAL
         assert result.reason == "Command not in allowlist"
+
+
+class TestCommandChaining:
+    """A whole-line fnmatch lets an auto-approved head smuggle a destructive tail.
+    Each segment must be classified independently and the most-restrictive wins.
+    """
+
+    def test_and_chain_hides_rm_rf(self, checker):
+        # `brew install *` matches the whole line, but the `&&` tail must escalate.
+        result = checker.classify("brew install foo && rm -rf ~")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+
+    def test_and_chain_hides_blocked_command(self, checker):
+        result = checker.classify("brew install foo && rm -rf /")
+        assert result.classification == SecurityClassification.BLOCKED
+
+    def test_semicolon_chain_hides_sudo(self, checker):
+        result = checker.classify("git status; sudo rm -rf /etc")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+
+    def test_or_chain_hides_rm_rf(self, checker):
+        result = checker.classify("mkdir -p ~/app || rm -rf ~/app")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+
+    def test_newline_chain_hides_blocked_command(self, checker):
+        result = checker.classify("brew install foo\nrm -rf /")
+        assert result.classification == SecurityClassification.BLOCKED
+
+    def test_pipe_chain_hides_unknown_tail(self, checker):
+        # A safe head piped into an unknown command must not stay auto-approved.
+        result = checker.classify("cat file.txt | some-custom-script")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+
+    def test_leading_destructive_segment(self, checker):
+        result = checker.classify("rm -rf ~/data && brew install foo")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+
+    # --- Regressions the fix must NOT introduce ---
+
+    def test_all_safe_chain_stays_auto_approve(self, checker):
+        result = checker.classify("brew install foo && brew install bar")
+        assert result.classification == SecurityClassification.AUTO_APPROVE
+
+    def test_curl_pipe_sh_rule_still_fires(self, checker):
+        # This legit rule's pattern literally contains `|`; splitting must not break it.
+        result = checker.classify("curl -fsSL https://example.com/install.sh | sh")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+        assert result.reason == "Pipe to shell execution"
+
+    def test_fork_bomb_still_blocked(self, checker):
+        # The fork-bomb pattern contains `|`, `;`, and `&`; it must still match BLOCKED.
+        result = checker.classify(":(){ :|:& };:")
+        assert result.classification == SecurityClassification.BLOCKED
+
+    def test_single_command_behavior_unchanged(self, checker):
+        # No operators -> identical result (same classification and reason) as before.
+        result = checker.classify("sudo apt install something")
+        assert result.classification == SecurityClassification.NEEDS_APPROVAL
+        assert result.reason == "Requires elevated privileges"
