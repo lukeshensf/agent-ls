@@ -25,7 +25,7 @@ class AuditLogger:
         user_approved: Optional[bool] = None,
         reason: Optional[str] = None,
     ) -> None:
-        entry = {
+        entry: dict[str, object] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "command": command,
             "classification": classification.value,
