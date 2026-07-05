@@ -81,8 +81,8 @@ async def test_kb_freshness_detects_stale_doc(base_state):
         patch("agent_ls.graph.nodes.kb_freshness.ObsidianVault") as mock_vault_cls,
         patch("agent_ls.graph.nodes.kb_freshness.CommandExecutor") as mock_exec_cls,
         patch("agent_ls.graph.nodes.kb_freshness.get_settings") as mock_settings,
-        patch("agent_ls.graph.nodes.kb_freshness.GitSync") as mock_git_cls,
-        patch("agent_ls.graph.nodes.kb_freshness.TeamKnowledge") as mock_tk_cls,
+        patch("agent_ls.graph.nodes.kb_freshness.GitSync") as _,
+        patch("agent_ls.graph.nodes.kb_freshness.TeamKnowledge") as _,
         patch("agent_ls.graph.nodes.kb_freshness._check_url", new_callable=lambda: AsyncMock),
     ):
         mock_vault = MagicMock()

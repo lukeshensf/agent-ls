@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
 
 from rich.text import Text
 from textual.reactive import reactive

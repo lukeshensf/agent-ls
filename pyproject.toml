@@ -46,6 +46,9 @@ build-backend = "uv_build"
 target-version = "py312"
 line-length = 100
 
+[tool.ruff.lint.per-file-ignores]
+"src/agent_ls/__main__.py" = ["E402"]  # load_dotenv() must run before imports
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

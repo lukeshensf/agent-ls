@@ -1,4 +1,3 @@
-import pytest
 
 from agent_ls.integrations.obsidian.templates import (
     DocTemplate,

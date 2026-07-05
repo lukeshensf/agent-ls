@@ -7,7 +7,6 @@ from agent_ls.graph.state import AgentState
 
 async def summarize_node(state: AgentState) -> dict:
     plan = state["plan"]
-    execution_log = state.get("execution_log", [])
 
     done = sum(1 for s in plan if s.status == "done")
     failed = sum(1 for s in plan if s.status == "failed")
