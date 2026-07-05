@@ -6,6 +6,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 
 from agent_ls.graph.nodes.context_gather import context_gather_node
+from agent_ls.graph.nodes.emit_harness import emit_harness_node
 from agent_ls.graph.nodes.execute import execute_after_approval, execute_node
 from agent_ls.graph.nodes.extract import extract_node
 from agent_ls.graph.nodes.finalize import finalize_node
@@ -58,6 +59,7 @@ def build_graph(checkpointer: Optional[BaseCheckpointSaver] = None):
     graph.add_node("execute_after_approval", execute_after_approval)
     graph.add_node("summarize", summarize_node)
     graph.add_node("finalize", finalize_node)
+    graph.add_node("emit_harness", emit_harness_node)
     graph.add_node("obsidian_write", obsidian_write_node)
     graph.add_node("obsidian_read", obsidian_read_node)
     graph.add_node("slack_search", slack_search_node)
@@ -80,7 +82,8 @@ def build_graph(checkpointer: Optional[BaseCheckpointSaver] = None):
         },
     )
 
-    # Setup/general branch: plan -> execute loop -> summarize -> finalize -> obsidian_write
+    # Setup/general branch: plan -> execute loop -> summarize -> finalize
+    #   -> emit_harness -> obsidian_write
     graph.add_edge("plan", "execute")
     graph.add_conditional_edges(
         "execute",
@@ -106,7 +109,8 @@ def build_graph(checkpointer: Optional[BaseCheckpointSaver] = None):
         _after_summarize,
         {"finalize": "finalize", "end": END},
     )
-    graph.add_edge("finalize", "obsidian_write")
+    graph.add_edge("finalize", "emit_harness")
+    graph.add_edge("emit_harness", "obsidian_write")
     graph.add_edge("obsidian_write", END)
 
     # Search branch: slack_search -> extract -> execute loop
