@@ -154,13 +154,14 @@ class ModelRouter:
         elif provider == "anthropic":
             from langchain_anthropic import ChatAnthropic
 
-            return ChatAnthropic(model=model_name)
+            # Explicitly pass None for optional params that mypy flags as required
+            return ChatAnthropic(model_name=model_name, timeout=None, stop=None)
         elif provider == "openai":
             from langchain_openai import ChatOpenAI
 
             return ChatOpenAI(model=model_name)
         elif provider == "ollama":
-            from langchain_ollama import ChatOllama
+            from langchain_ollama import ChatOllama  # type: ignore[import-not-found]
 
             return ChatOllama(
                 model=model_name, base_url=self._settings.ollama.base_url
@@ -178,9 +179,9 @@ class ModelRouter:
         The signer is set to UNSIGNED so botocore won't strip our header; the bearer
         is injected on `before-send` (after the signing pass) to survive redirects.
         """
-        import boto3
-        from botocore import UNSIGNED
-        from botocore.config import Config
+        import boto3  # type: ignore[import-untyped]
+        from botocore import UNSIGNED  # type: ignore[import-untyped]
+        from botocore.config import Config  # type: ignore[import-untyped]
 
         session = boto3.Session(region_name=region)
         client = session.client(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -34,7 +34,8 @@ class SlackClient:
             response = self._client.chat_postMessage(
                 channel=channel, text=text, blocks=blocks
             )
-            return response.data
+            # chat_postMessage always returns dict, never bytes
+            return cast(dict, response.data)
         except SlackApiError as e:
             raise RuntimeError(f"Slack post failed: {e.response['error']}") from e
 
