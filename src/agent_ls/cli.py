@@ -8,6 +8,20 @@ import typer
 app = typer.Typer(name="agent-ls", help="AI-powered developer environment setup agent")
 
 
+@app.callback()
+def _load_env() -> None:
+    """Load `.env` before any command runs.
+
+    This runs for both the `agent-ls` console script and `python -m agent_ls`,
+    so credentials in `.env` (Bedrock, Slack, vault path) are available no matter
+    how the CLI is invoked. Imported lazily so merely importing `cli` in tests
+    does not pull real environment values into the process.
+    """
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+
 @app.command()
 def run(
     message: str = typer.Argument(None, help="Setup instruction to execute"),

@@ -33,7 +33,18 @@ Edit `.env` with your credentials:
 - Set `ANTHROPIC_API_KEY` for direct Anthropic API access
 - Set `OLLAMA_BASE_URL` for local models via Ollama
 
-### 3. Run the agent
+### 3. Create your Obsidian vault
+
+The vault directory in `OBSIDIAN_VAULT_PATH` must exist — it is not auto-created.
+Setup logs and the `.sh` harness are written into its `logs/` folder, and git-sync
+expects a repo:
+
+```bash
+mkdir -p ~/Documents/ObsidianVault/logs      # match OBSIDIAN_VAULT_PATH
+git -C ~/Documents/ObsidianVault init -q
+```
+
+### 4. Run the agent
 
 ```bash
 # Launch the TUI
@@ -45,6 +56,14 @@ agent-ls run "set up my Java development environment"
 # Full team setup
 agent-ls setup --team platform-team
 ```
+
+> **Slack is optional.** Setup runs (and the `.sh` harness) work without a Slack
+> token — `SLACK_USER_TOKEN` is only needed for the search/share features and for
+> auto-detecting your team from your Slack profile. Leave the `xoxp-...` placeholder
+> in place to test setup without it.
+
+For a full from-scratch walkthrough and troubleshooting, see
+**[`docs/SETUP.md`](docs/SETUP.md)**.
 
 ## Usage
 
