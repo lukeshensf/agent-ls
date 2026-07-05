@@ -5,6 +5,7 @@ import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent_ls.graph.state import AgentState, UserContext
+from agent_ls.graph.utils import message_content_as_text
 from agent_ls.integrations.models.router import ModelRouter
 from agent_ls.integrations.slack.client import SlackClient
 
@@ -42,7 +43,7 @@ async def context_gather_node(state: AgentState) -> dict:
 
         import json
 
-        data = json.loads(response.content)
+        data = json.loads(message_content_as_text(response.content))
         return {
             "user_context": UserContext(
                 team=data.get("team"),
