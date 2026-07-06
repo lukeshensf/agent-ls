@@ -30,13 +30,15 @@ class CommandExecutor:
         import time
 
         start = time.perf_counter()
+        # Spawn OUTSIDE the try/except so a spawn failure (OSError) propagates
+        # cleanly and can never leave `proc` unbound in the timeout handler below.
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+        )
         try:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-            )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=self._timeout
             )
@@ -49,7 +51,11 @@ class CommandExecutor:
                 duration_ms=duration_ms,
             )
         except asyncio.TimeoutError:
+            # Kill the child AND await it: kill() only sends the signal, so without
+            # the wait the process is left unreaped (zombie) and its transport
+            # unclosed (a ResourceWarning at GC). wait() reaps it and closes the pipes.
             proc.kill()
+            await proc.wait()
             duration_ms = int((time.perf_counter() - start) * 1000)
             return CommandResult(
                 command=command,
