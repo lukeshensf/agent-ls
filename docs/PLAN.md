@@ -117,7 +117,7 @@ regression test that would fail before the fix.
   (shared normalization helper if introduced there). Acceptance: add tests for
   `sudo\trm`, `RM  -RF`, mid-line `... | sh`; no existing score assertion regresses.
 
-- [ ] **2.3 — Add path-traversal guards to `ObsidianVault`.** `vault.read`/`write`
+- [x] **2.3 — Add path-traversal guards to `ObsidianVault`.** `vault.read`/`write`
   (`integrations/obsidian/vault.py`) join a caller-supplied `relative_path` to the vault
   root with no containment check, so `../../etc/passwd` escapes the vault. Mirror the
   containment check already used in `emit_harness_node` (`resolve()` +
