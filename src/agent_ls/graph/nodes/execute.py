@@ -3,7 +3,7 @@ from __future__ import annotations
 from agent_ls.graph.state import AgentState, ExecutionResult
 from agent_ls.integrations.computer_use.executor import CommandExecutor
 from agent_ls.security.allowlist import AllowlistChecker, SecurityClassification
-from agent_ls.security.audit import AuditLogger, ExecutionTimer
+from agent_ls.security.audit import AuditLogger
 
 
 async def execute_node(state: AgentState) -> dict:
@@ -58,8 +58,12 @@ async def _execute_command(state: AgentState, command: str) -> dict:
 
     step.status = "running"
 
-    with ExecutionTimer() as _:
-        cmd_result = await executor.execute(command)
+    # `CommandResult.duration_ms` is the authoritative execution duration: it is a
+    # required field the executor measures with a single `time.perf_counter()` span
+    # wrapped tightly around the subprocess, and it is populated on both the success
+    # and timeout paths. We record that one value into the step, the audit entry, and
+    # the execution log so all three agree; no separate node-level timer is kept.
+    cmd_result = await executor.execute(command)
 
     step.status = "done" if cmd_result.exit_code == 0 else "failed"
     step.exit_code = cmd_result.exit_code
