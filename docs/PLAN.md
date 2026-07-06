@@ -153,13 +153,19 @@ Phase 2 but each needs a test.
   `split("|", 3)` contract and cover the `|`-in-subject case with a test. Acceptance:
   regression test with a pipe in the commit message; `test_team_knowledge.py` green.
 
-- [ ] **3.3 — Guard `CommandExecutor.execute` timeout cleanup.** In
+- [x] **3.3 — Guard `CommandExecutor.execute` timeout cleanup.** In
   `computer_use/executor.py`, the `except asyncio.TimeoutError` branch calls `proc.kill()`
   but never awaits `proc.wait()`, risking a zombie/unclosed-transport warning; and if the
   subprocess fails to *spawn*, `proc` is unbound in the handler. Await the process after
   kill and scope the handler so an un-spawned proc can't `NameError`. Acceptance: a test
   driving the timeout path (short timeout on a sleep) that asserts `timed_out=True` and no
   unraised exception.
+  _Resolved: moved the `create_subprocess_shell` spawn OUTSIDE the try (so a spawn
+  `OSError` propagates cleanly and `proc` can never be unbound in the handler), and added
+  `await proc.wait()` after `proc.kill()` in the timeout branch to reap the child and close
+  its transport. Added two tests to `test_executor.py`: the timeout path reaps the process
+  (returncode set, run under `-W error::ResourceWarning`), and a spawn failure raises
+  `OSError` rather than `NameError`._
 
 ---
 
