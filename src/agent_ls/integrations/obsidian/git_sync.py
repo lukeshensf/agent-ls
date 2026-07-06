@@ -64,7 +64,11 @@ class GitSync:
                 for author in authors:
                     args.append(f"--author={author}")
 
-            log_output = self._repo.git.log(*args, format="%H|%an|%s|%aI", name_only=True)
+            # The commit subject (%s) is free-form and may contain '|', so it MUST be
+            # the last field. With subject last, a bounded split("|", 3) keeps the
+            # fixed-shape fields (hash|author|iso-date) intact and captures the entire
+            # subject — pipes and all — as the final part.
+            log_output = self._repo.git.log(*args, format="%H|%an|%aI|%s", name_only=True)
         except GitCommandError:
             return []
 
@@ -75,13 +79,15 @@ class GitSync:
         current_entry: Optional[GitHistoryEntry] = None
 
         for line in log_output.strip().split("\n"):
-            if "|" in line and line.count("|") >= 3:
-                parts = line.split("|", 3)
+            # A header line has the three leading delimiters (hash|author|date|subject);
+            # the subject may add more, so require at least 3, not exactly 3.
+            if line.count("|") >= 3:
+                commit_hash, author, timestamp, message = line.split("|", 3)
                 current_entry = GitHistoryEntry(
-                    commit_hash=parts[0],
-                    author=parts[1],
-                    message=parts[3] if len(parts) > 3 else parts[2],
-                    timestamp=parts[3] if len(parts) > 3 else "",
+                    commit_hash=commit_hash,
+                    author=author,
+                    message=message,
+                    timestamp=timestamp,
                 )
                 entries.append(current_entry)
             elif line.strip() and current_entry is not None:

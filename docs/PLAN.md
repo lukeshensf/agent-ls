@@ -146,12 +146,18 @@ Phase 2 but each needs a test.
   `duration_ms` vs. `ExecutionTimer.elapsed_ms`) and document which is authoritative.
   Depends on: 1.2. Acceptance: audit entry always carries `duration_ms`; unit test asserts it.
 
-- [ ] **3.2 — Make `GitSync.search_history` timestamp parsing correct.** In
+- [x] **3.2 — Make `GitSync.search_history` timestamp parsing correct.** In
   `git_sync.py`, `GitHistoryEntry.timestamp` is set to `parts[3]` (the ISO date) only when
   4 parts are present, else `""`, and `message` falls back to `parts[2]` — the field
   mapping is fragile when a commit subject contains `|`. Parse with a bounded
   `split("|", 3)` contract and cover the `|`-in-subject case with a test. Acceptance:
   regression test with a pipe in the commit message; `test_team_knowledge.py` green.
+  _Resolved: reordered the log format from `%H|%an|%s|%aI` to `%H|%an|%aI|%s` so the
+  free-form subject is last, then unpack with a bounded `split("|", 3)`. This fixed two
+  bugs: (1) even with no pipe, `message` was previously the date and the subject was
+  dropped; (2) a `|` in the subject corrupted both fields. New
+  `tests/unit/test_git_sync_history.py` drives the real parser (previously only mocked)
+  against a real repo, covering plain and pipe-containing subjects._
 
 - [ ] **3.3 — Guard `CommandExecutor.execute` timeout cleanup.** In
   `computer_use/executor.py`, the `except asyncio.TimeoutError` branch calls `proc.kill()`
