@@ -124,7 +124,7 @@ regression test that would fail before the fix.
   `is_relative_to(root)`), raising `ValueError` on escape. Acceptance: tests for `..`
   traversal and absolute-path inputs on both `read` and `write`; existing vault tests green.
 
-- [ ] **2.4 — Replace bare `except Exception` in git sync and harness emit.**
+- [x] **2.4 — Replace bare `except Exception` in git sync and harness emit.** _(merged in #13)_
   `git_sync.commit_and_push` catches `(GitCommandError, Exception)` and
   `emit_harness_node` catches `(ValueError, Exception)` — both swallow *everything*,
   masking bugs (and `(X, Exception)` is redundant since `Exception` already covers `X`).
