@@ -359,6 +359,64 @@ async def test_node_skips_git_when_disabled(write_state, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_node_swallows_expected_git_failure(write_state, tmp_path):
+    """An expected git failure (e.g. vault is not a repo -> ValueError) must not
+    fail the node: the harness is already written, git sync is best-effort."""
+    target = tmp_path / "harness.sh"
+
+    with (
+        patch("agent_ls.graph.nodes.emit_harness.ObsidianVault") as mock_vault_cls,
+        patch("agent_ls.graph.nodes.emit_harness.get_settings") as mock_settings,
+        patch("agent_ls.graph.nodes.emit_harness.GitSync") as mock_git_cls,
+    ):
+        mock_vault = MagicMock()
+        mock_vault.exists.return_value = False
+        mock_vault.write.side_effect = lambda rel, content: (
+            target.write_text(content),
+            target,
+        )[1]
+        mock_vault.root = tmp_path
+        mock_vault_cls.return_value = mock_vault
+
+        _patch_settings(mock_settings)
+        # GitSync(vault.root) raises ValueError when the vault is not a git repo.
+        mock_git_cls.side_effect = ValueError("not a git repository")
+
+        result = await emit_harness_node(write_state)
+
+    # The harness is still emitted; the git failure is logged and swallowed.
+    assert result["harness_path"] == str(target)
+    assert "error" not in result
+
+
+@pytest.mark.asyncio
+async def test_node_does_not_swallow_programming_error(write_state, tmp_path):
+    """A programming bug (TypeError) in the git path must surface, not be masked
+    by an over-broad `except Exception`."""
+    target = tmp_path / "harness.sh"
+
+    with (
+        patch("agent_ls.graph.nodes.emit_harness.ObsidianVault") as mock_vault_cls,
+        patch("agent_ls.graph.nodes.emit_harness.get_settings") as mock_settings,
+        patch("agent_ls.graph.nodes.emit_harness.GitSync") as mock_git_cls,
+    ):
+        mock_vault = MagicMock()
+        mock_vault.exists.return_value = False
+        mock_vault.write.side_effect = lambda rel, content: (
+            target.write_text(content),
+            target,
+        )[1]
+        mock_vault.root = tmp_path
+        mock_vault_cls.return_value = mock_vault
+
+        _patch_settings(mock_settings)
+        mock_git_cls.side_effect = TypeError("programming bug")
+
+        with pytest.raises(TypeError):
+            await emit_harness_node(write_state)
+
+
+@pytest.mark.asyncio
 async def test_node_appends_collision_counter(write_state, tmp_path):
     written = {}
 
