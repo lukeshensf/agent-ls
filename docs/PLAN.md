@@ -184,7 +184,7 @@ Phase 2 but each needs a test.
 
 Goal: lock in the gains so regressions can't silently return.
 
-- [ ] **4.1 — Add a GitHub Actions CI workflow.** Add `.github/workflows/ci.yml` that runs
+- [x] **4.1 — Add a GitHub Actions CI workflow.** _(merged in #TBD)_ Add `.github/workflows/ci.yml` that runs
   `uv sync` then `pytest -q`, `ruff check src/ tests/`, and `mypy src/` on push/PR against
   `main`. Do not add new runtime deps. Depends on: 1.6 (mypy must be clean or CI will be
   red on arrival). Acceptance: workflow file validates; commands mirror `docs/SETUP.md §6`.
