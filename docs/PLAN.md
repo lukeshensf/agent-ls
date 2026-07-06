@@ -124,7 +124,7 @@ regression test that would fail before the fix.
   `is_relative_to(root)`), raising `ValueError` on escape. Acceptance: tests for `..`
   traversal and absolute-path inputs on both `read` and `write`; existing vault tests green.
 
-- [ ] **2.4 — Replace bare `except Exception` in git sync and harness emit.**
+- [x] **2.4 — Replace bare `except Exception` in git sync and harness emit.** _(merged in #13)_
   `git_sync.commit_and_push` catches `(GitCommandError, Exception)` and
   `emit_harness_node` catches `(ValueError, Exception)` — both swallow *everything*,
   masking bugs (and `(X, Exception)` is redundant since `Exception` already covers `X`).
@@ -184,12 +184,12 @@ Phase 2 but each needs a test.
 
 Goal: lock in the gains so regressions can't silently return.
 
-- [ ] **4.1 — Add a GitHub Actions CI workflow.** Add `.github/workflows/ci.yml` that runs
+- [x] **4.1 — Add a GitHub Actions CI workflow.** _(merged in #17)_ Add `.github/workflows/ci.yml` that runs
   `uv sync` then `pytest -q`, `ruff check src/ tests/`, and `mypy src/` on push/PR against
   `main`. Do not add new runtime deps. Depends on: 1.6 (mypy must be clean or CI will be
   red on arrival). Acceptance: workflow file validates; commands mirror `docs/SETUP.md §6`.
 
-- [ ] **4.2 — Add a security-focused regression test module.** Consolidate the
+- [x] **4.2 — Add a security-focused regression test module.** _(merged in #18)_ Consolidate the
   execution-path attack cases (chaining bypass, classifier evasion, vault traversal) into a
   dedicated `tests/unit/test_security_regressions.py` so future edits to the gate are
   covered by intent-named tests. Depends on: 2.1, 2.2, 2.3. Acceptance: module added,
