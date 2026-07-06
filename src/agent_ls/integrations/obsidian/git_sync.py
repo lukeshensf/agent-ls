@@ -6,7 +6,7 @@ from typing import Optional
 
 import structlog
 from git import Repo
-from git.exc import GitCommandError, InvalidGitRepositoryError
+from git.exc import GitCommandError, GitError, InvalidGitRepositoryError
 
 logger = structlog.get_logger()
 
@@ -50,8 +50,13 @@ class GitSync:
             if self._repo.remotes:
                 self._repo.remotes.origin.push()
             return True
-        except (GitCommandError, Exception) as e:
-            logger.warning("commit_and_push_failed", error=str(e))
+        except (GitError, OSError) as e:
+            # Expected failure modes only: any git error (GitError is the base of
+            # GitCommandError et al.) or a filesystem error. Programming errors
+            # (TypeError, etc.) are NOT caught here so they surface instead of
+            # being masked as a silent False. `(GitCommandError, Exception)` was
+            # redundant (Exception already covers it) and swallowed everything.
+            logger.warning("commit_and_push_failed", error=str(e), error_type=type(e).__name__)
             return False
 
     def search_history(

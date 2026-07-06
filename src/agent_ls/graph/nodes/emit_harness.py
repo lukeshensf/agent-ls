@@ -5,6 +5,7 @@ import re
 from datetime import datetime, timezone
 
 import structlog
+from git.exc import GitError
 
 from agent_ls import __version__
 from agent_ls.config.settings import get_settings
@@ -160,8 +161,13 @@ async def emit_harness_node(state: AgentState) -> dict:
                 git_sync.commit_and_push(path, f"agent-ls: setup harness {date}")
             else:
                 git_sync.commit_file(path, f"agent-ls: setup harness {date}")
-        except (ValueError, Exception) as e:
-            logger.warning("git_sync_failed", error=str(e))
+        except (GitError, OSError, ValueError) as e:
+            # Best-effort sync: the harness is already written to disk. Catch only
+            # expected failures — git errors (GitError base), filesystem errors, and
+            # the ValueError GitSync.__init__ raises when the vault is not a repo.
+            # Programming errors are left to surface. Previously `(ValueError,
+            # Exception)` swallowed everything, masking real bugs.
+            logger.warning("git_sync_failed", error=str(e), error_type=type(e).__name__)
 
     live = sum(
         1 for s in plan if s.command and s.status == "done" and s.exit_code == 0
