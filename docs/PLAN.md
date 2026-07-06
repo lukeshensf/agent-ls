@@ -41,14 +41,14 @@ must record the new count in its PR body.
 Goal: `ruff check` and `mypy src/` both exit clean, so every later PR can be held to a
 zero-regression bar. These are low-risk, high-leverage, and mostly mechanical.
 
-- [ ] **1.1 — Clear all `ruff` F401 unused-import errors.** Remove the 18 unused imports
+- [x] **1.1 — Clear all `ruff` F401 unused-import errors.** _(merged in #3)_ Remove the 18 unused imports
   ruff flags across `src/` and `tests/` (e.g. `computer_use/executor.py:4`,
   `obsidian/team_knowledge.py:4`, `slack/smart_search.py:4-5`, `tui/app.py:3`,
   `tui/widgets/plan_checklist.py:3`, and several `tests/unit/*`). Do **not** delete an
   import that is actually re-exported; verify with `ruff check`. Acceptance: F401 count → 0,
   `pytest` still 185 passed.
 
-- [ ] **1.2 — Clear `ruff` F841/E402 errors.** Fix the 4 unused-variable findings
+- [x] **1.2 — Clear `ruff` F841/E402 errors.** _(merged in #3)_ Fix the 4 unused-variable findings
   (`graph/nodes/execute.py:61` `timer`, `graph/nodes/summarize.py:10` `execution_log`,
   `tests/unit/test_kb_freshness.py:84-85`) and the 1 module-import-not-at-top finding
   (`__main__.py:5`). For `execute.py:61`, the `ExecutionTimer` is assigned but its
@@ -57,7 +57,7 @@ zero-regression bar. These are low-risk, high-leverage, and mostly mechanical.
   Do not change behavior silently; if a variable was meant to be used, wire it in.
   Depends on: 1.1. Acceptance: `ruff check src/ tests/` → **0 errors**.
 
-- [ ] **1.3 — Add a `[tool.mypy]` config and install `types-PyYAML`.** Add a `[tool.mypy]`
+- [x] **1.3 — Add a `[tool.mypy]` config and install `types-PyYAML`.** _(merged in #4)_ Add a `[tool.mypy]`
   section to `pyproject.toml` (`python_version = "3.12"`, `ignore_missing_imports` scoped
   narrowly or per-module overrides for `boto3`/`botocore`/`langchain_ollama`), and add
   `types-PyYAML` to the dev dependency group so the `yaml` import-untyped errors
@@ -66,14 +66,14 @@ zero-regression bar. These are low-risk, high-leverage, and mostly mechanical.
   real type errors — only silence third-party stubs that genuinely lack them. Acceptance:
   the import-untyped/import-not-found mypy errors are gone; the remaining count is recorded.
 
-- [ ] **1.4 — Fix the `audit.py` typed-dict assignment errors.** `AuditLogger.log_command`
+- [x] **1.4 — Fix the `audit.py` typed-dict assignment errors.** _(merged in #5)_ `AuditLogger.log_command`
   builds `entry` whose value type mypy infers as `bool | str`, then assigns `int`
   (`audit.py:35,37`). Give `entry` an explicit `dict[str, object]` (or a `TypedDict`)
   annotation so `exit_code`/`duration_ms` int assignments type-check. Security-sensitive
   file — change types only, never the redaction/logging behavior. Depends on: 1.3.
   Acceptance: `audit.py` mypy errors → 0.
 
-- [ ] **1.5 — Fix the LLM-response `str | list` type errors in graph nodes.** `router.py:34,42`,
+- [x] **1.5 — Fix the LLM-response `str | list` type errors in graph nodes.** _(merged in #6)_ `router.py:34,42`,
   `nodes/plan.py:44,52`, `nodes/extract.py:47`, `nodes/error_recovery.py:55`,
   `nodes/context_gather.py:45`, and `nodes/search.py:29` all treat a LangChain message
   `.content` (typed `str | list[...]`) as a plain `str`. Add a small shared helper (e.g.
@@ -81,7 +81,7 @@ zero-regression bar. These are low-risk, high-leverage, and mostly mechanical.
   these call sites through it. Depends on: 1.3. Acceptance: those 8 mypy errors → 0;
   add a unit test for the helper covering both the `str` and `list` shapes.
 
-- [ ] **1.6 — Fix the TUI/config/router remaining mypy errors.** Address
+- [x] **1.6 — Fix the TUI/config/router remaining mypy errors.** _(merged in #8)_ Address
   `tui/screens/config.py:160-175` (dict passed where a pydantic settings sub-model is
   expected — construct the sub-models), `tui/screens/audit_viewer.py:103` (`Row.style`),
   `tui/app.py:100,199` (`str | None` and `GraphRunner`/`None` assignment),
@@ -97,7 +97,7 @@ Goal: close real gaps in the command-execution trust boundary. **Never weaken a 
 pass a test** — if a security test fails, the code is wrong. Every item here needs a
 regression test that would fail before the fix.
 
-- [ ] **2.1 — Block allowlist bypass via command chaining.** `AllowlistChecker.classify()`
+- [x] **2.1 — Block allowlist bypass via command chaining.** _(merged in #7)_ `AllowlistChecker.classify()`
   (`security/allowlist.py`) `fnmatch`-matches the **entire** command string, and
   `graph/nodes/execute.py` passes the whole line to `create_subprocess_shell`. So
   `brew install foo && rm -rf ~` matches `brew install *` and **auto-approves** a
@@ -108,7 +108,7 @@ regression test that would fail before the fix.
   existing `curl * | sh` require-approval rule must still fire. Acceptance: new bypass test
   fails on `main`, passes after; all existing `test_security.py` cases stay green.
 
-- [ ] **2.2 — Harden the risk classifier against evasion.** `security/classifier.py` uses
+- [x] **2.2 — Harden the risk classifier against evasion.** _(merged in #9)_ `security/classifier.py` uses
   naive substring checks (`"sudo" in command`, `"rm " in command`). It misses
   tab/newline-separated tokens, `\t`sudo, and quoted/backslash-escaped variants, and
   `PIPE_TO_SHELL`/`SUBSHELL_SUDO` only `.match` from the start. Normalize whitespace and
