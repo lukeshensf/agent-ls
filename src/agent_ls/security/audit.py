@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -42,19 +41,3 @@ class AuditLogger:
 
         with open(self._path, "a") as f:
             f.write(json.dumps(entry) + "\n")
-
-
-class ExecutionTimer:
-    def __init__(self):
-        self._start: float = 0
-
-    def __enter__(self):
-        self._start = time.perf_counter()
-        return self
-
-    def __exit__(self, *args):
-        pass
-
-    @property
-    def elapsed_ms(self) -> int:
-        return int((time.perf_counter() - self._start) * 1000)

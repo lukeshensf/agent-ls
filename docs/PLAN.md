@@ -140,11 +140,16 @@ regression test that would fail before the fix.
 Goal: fix latent correctness issues surfaced during the survey. Lower blast radius than
 Phase 2 but each needs a test.
 
-- [ ] **3.1 — Record execution duration via the audit timer, not a discarded var.**
+- [x] **3.1 — Record execution duration via the audit timer, not a discarded var.**
   Tie off the `ExecutionTimer` decision from 1.2: ensure `_execute_command`
   (`graph/nodes/execute.py`) logs a duration sourced consistently (executor
   `duration_ms` vs. `ExecutionTimer.elapsed_ms`) and document which is authoritative.
   Depends on: 1.2. Acceptance: audit entry always carries `duration_ms`; unit test asserts it.
+  _Resolved: executor `CommandResult.duration_ms` is authoritative (required field,
+  measured once around the subprocess, set on both success and timeout paths). The
+  discarded `with ExecutionTimer() as _:` and the now-unused `ExecutionTimer` class were
+  removed. New `tests/unit/test_execute_node.py` asserts the audit entry carries
+  `duration_ms` on both the success and timeout outcomes._
 
 - [ ] **3.2 — Make `GitSync.search_history` timestamp parsing correct.** In
   `git_sync.py`, `GitHistoryEntry.timestamp` is set to `parts[3]` (the ISO date) only when
