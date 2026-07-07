@@ -249,6 +249,8 @@ agent-ls/
 
 ## Security Model
 
+The security model establishes a trust boundary around command execution and file operations, protecting against malicious or erroneous commands from the LLM-generated plans. All hardening work shipped in Phase 2 is documented below.
+
 ### Command Allowlist System
 
 **Allowlist-based** (`config/allowlist.yaml`):
@@ -264,12 +266,68 @@ Command → Allowlist Check → Auto-approve? → Execute
                          → Blocked?      → Reject + Log
 ```
 
+### Command Chaining Defense
+
+The allowlist classifier defends against chained-command bypass attacks by splitting shell command lines on operators (`;`, `&&`, `||`, `|`, `&`, newlines) and classifying each segment independently before execution (`src/agent_ls/security/allowlist.py`).
+
+**Most-restrictive-wins rule:** The final classification is the most restrictive verdict across all segments:
+1. If any segment is **BLOCKED**, the entire command is blocked
+2. If any segment is **NEEDS_APPROVAL** (and none are blocked), the entire command requires approval
+3. Only if all segments are **AUTO_APPROVE** does the command auto-approve
+
+**Example:** The command `brew install foo && rm -rf ~` is split into two segments:
+- Segment 1: `brew install foo` → AUTO_APPROVE
+- Segment 2: `rm -rf ~` → BLOCKED
+
+The most-restrictive verdict (BLOCKED) wins, so the entire command is blocked. This prevents an approved command head from smuggling a destructive tail past the gate.
+
+### Evasion Resistance
+
+The risk classifier normalizes commands before pattern matching to resist evasion attempts (`src/agent_ls/security/classifier.py`):
+
+- **Whitespace normalization:** All whitespace (tabs, multiple spaces, newlines) is collapsed to single spaces before classification. This prevents evasive spacing like `sudo\trm` or `rm  -rf` from bypassing destructive-command detection.
+- **Case-insensitive matching:** Pattern matching for pipe-to-shell, system redirects, and subshell escalation uses `re.IGNORECASE` so `SUDO` or `RM` variants are caught.
+- **Mid-line pattern matching:** Patterns use `re.search` (not `re.match`) so pipe-to-shell sequences like `curl | sh` are detected anywhere in the command, not just at the start.
+
+### Obsidian Vault Containment
+
+All Obsidian vault read/write operations enforce path containment to prevent directory traversal attacks (`src/agent_ls/integrations/obsidian/vault.py`):
+
+- **Containment check:** Every caller-supplied relative path is resolved via `Path.resolve()` and verified to be contained within the vault root using `Path.is_relative_to()`.
+- **Escape rejection:** Paths with `..` components or absolute paths that escape the vault boundary raise `ValueError` before any filesystem operation.
+- **Defense-in-depth:** The `_safe_path` method applies this check uniformly across `read`, `write`, `list_docs`, and `exists` operations.
+
+This guards against untrusted input (e.g., LLM-extracted team slugs from Slack profiles) being used in file paths.
+
 ### Audit Log
 
-All commands logged to `~/.agent-ls/audit.jsonl`:
+All executed commands (approved or auto-approved) are logged to `~/.agent-ls/audit.jsonl` with classification, exit code, and duration. Blocked commands are logged but never executed.
+
 ```json
 {"timestamp": "2026-05-27T14:30:00Z", "command": "brew install node", "classification": "auto_approve", "executed": true, "exit_code": 0, "duration_ms": 4523}
 ```
+
+### Success-Gated Push
+
+The `finalize` node determines `run_success` based on error state and whether any plan steps completed successfully (`src/agent_ls/graph/nodes/finalize.py`). The `obsidian_write` and `emit_harness` nodes use this flag to gate git push operations (`src/agent_ls/graph/nodes/obsidian.py`, `src/agent_ls/graph/nodes/emit_harness.py`):
+
+- **Success:** If `run_success = True`, both the setup log and the emitted bash harness are committed and pushed to the team's remote workspace.
+- **Failure:** If `run_success = False`, artifacts are committed locally but never pushed, preventing failed runs from polluting the shared team knowledge base.
+
+### Secret Redaction in Emitted Harness
+
+The emitted bash harness (`logs/<team>-setup-<date>.sh`) redacts sensitive credentials before writing to disk (`src/agent_ls/graph/nodes/emit_harness.py`):
+
+- **Redacted secrets:** Bedrock auth tokens and Slack user tokens (from `config.toml`) are replaced with `***REDACTED***` in all command text and metadata.
+- **Not redacted:** Endpoint URLs are not redacted because they are legitimate substrings of live commands (e.g., `curl <endpoint>/v1/models`) and are not secrets.
+- **Scope:** Secret redaction applies to command text, step descriptions, and notes rendered on comment lines to prevent token leakage via LLM-echoed metadata.
+
+### Narrow Exception Handling
+
+Exception handlers are narrowed to catch only expected failure modes, allowing programming errors (e.g., `TypeError`, `AttributeError`) to surface rather than being masked:
+
+- **git_sync.py:** `commit_and_push` catches `(GitError, OSError)` only — expected git and filesystem failures. Previously caught `(GitCommandError, Exception)`, which was redundant and overly broad.
+- **emit_harness.py:** Git sync failure handler catches `(GitError, OSError, ValueError)` — expected git errors, filesystem errors, and the `ValueError` raised when the vault is not a git repo. Previously caught `(ValueError, Exception)`, which swallowed all programming errors.
 
 ---
 
