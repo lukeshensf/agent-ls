@@ -189,7 +189,7 @@ Goal: lock in the gains so regressions can't silently return.
   `main`. Do not add new runtime deps. Depends on: 1.6 (mypy must be clean or CI will be
   red on arrival). Acceptance: workflow file validates; commands mirror `docs/SETUP.md §6`.
 
-- [ ] **4.2 — Add a security-focused regression test module.** Consolidate the
+- [x] **4.2 — Add a security-focused regression test module.** _(merged in #18)_ Consolidate the
   execution-path attack cases (chaining bypass, classifier evasion, vault traversal) into a
   dedicated `tests/unit/test_security_regressions.py` so future edits to the gate are
   covered by intent-named tests. Depends on: 2.1, 2.2, 2.3. Acceptance: module added,
